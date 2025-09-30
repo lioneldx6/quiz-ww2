@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Quiz WW2 - Nuevo Banco</title>
+<style>
+body{font-family:sans-serif;background:#0f172a;color:#e6eef8;margin:0;display:flex;justify-content:center;align-items:center;height:100vh;padding:20px}
+.card{background:#0b1220;padding:24px;border-radius:12px;box-shadow:0 8px 25px rgba(2,6,23,.7);max-width:800px;width:100%}
+h1{margin:0 0 20px;font-size:22px}
+.question{font-size:18px;margin:16px 0}
+.options{display:flex;flex-direction:column;gap:8px}
+button.opt{background:#0f172a;border:1px solid #21304a;padding:10px;border-radius:8px;color:#cfe7ff;cursor:pointer;text-align:left}
+button.opt:hover{background:#16233a}
+.timer{margin-top:10px;font-size:14px}
+.next,.start{margin-top:16px;padding:10px 14px;border-radius:8px;border:none;background:#1f6feb;color:white;cursor:pointer}
+.next:disabled{opacity:.5;cursor:not-allowed}
+.result{background:#071427;padding:16px;border-radius:10px;margin-top:16px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>Quiz WW2 — Banco Nuevo</h1>
+
+<div id="menu">
+  <p>¡Comencemos! Haz click en iniciar:</p>
+  <button class="start" onclick="startGame()">Iniciar Quiz</button>
+</div>
+
+<div id="game" class="hidden">
+  <div class="small">Pregunta <span id="idx"></span> / <span id="total"></span></div>
+  <div class="question" id="qtext"></div>
+  <div class="options" id="opts"></div>
+  <div class="timer">Tiempo restante: <span id="time">15</span>s</div>
+  <button class="next" id="nextBtn" disabled>Siguiente</button>
+  <div id="scoreDisplay"></div>
+</div>
+
+<div id="end" class="hidden">
+<h2>Resultado final</h2>
+<div class="result" id="resultText"></div>
+<button class="start" onclick="restart()">Reiniciar Quiz</button>
+</div>
+</div>
+
+<script>
+// Nuevo banco de preguntas y 10 opciones cada una
+const QUESTION_BANK=[
+  {q:"¿Qué año terminó la Segunda Guerra Mundial?", opts:["1945","1944","1943","1946","1947","1942","1941","1940","1939","1938"], correct:0},
+  {q:"¿Qué ciudad alemana fue devastada por bombardeos en 1945?", opts:["Dresde","Berlín","Hamburgo","Múnich","Colonia","Frankfurt","Leipzig","Nuremberg","Stuttgart","Dortmund"], correct:0},
+  {q:"¿Qué país fue invadido por la Unión Soviética en 1939?", opts:["Polonia oriental","Finlandia","Estonia","Letonia","Lituania","Alemania","Rumania","Hungría","Checoslovaquia","Bulgaria"], correct:0},
+  {q:"¿Qué arma devastadora lanzó EE.UU. sobre Hiroshima?", opts:["Bomba atómica","Bomba de napalm","Gas mostaza","Cohete V-2","Torpedo","Bomba de fósforo","Bomba incendiaria","Misil balístico","Bomba neutron","Artillería pesada"], correct:0},
+  {q:"¿Qué país sufrió el Holocausto principalmente?", opts:["Polonia","Alemania","Francia","Hungría","Países Bajos","Checoslovaquia","Bélgica","Ucrania","Rumania","Grecia"], correct:0},
+  {q:"¿Qué batalla naval fue decisiva en el Pacífico?", opts:["Midway","Pearl Harbor","Coral Sea","Leyte Gulf","Iwo Jima","Guadalcanal","Philippine Sea","Singapore","Java Sea","Malaca"], correct:0},
+  {q:"¿Qué resistencia famosa luchó en Francia ocupada?", opts:["La Resistencia","Maquis","Partisanos","Fuerzas Libres","SOE","Frente Popular","Legión Extranjera","Movimento","Frente Unido","Ejército Secreto"], correct:0},
+  {q:"¿Qué país firmó el pacto de no agresión con Alemania en 1939?", opts:["URSS","Italia","Japón","Francia","Reino Unido","Polonia","Hungría","Bulgaria","Rumania","Noruega"], correct:0},
+  {q:"¿Qué ciudad fue escenario del Juicio de Nuremberg?", opts:["Nuremberg","Berlín","Munich","Hamburgo","Frankfurt","Dresde","Leipzig","Colonia","Stuttgart","Augsburgo"], correct:0},
+  {q:"¿Qué fuerza aérea británica defendió Inglaterra en 1940?", opts:["RAF","Luftwaffe","USAF","Armée de l'air","Regia Aeronautica","Kamikaze","Blue Angels","Fliegertruppe","Aeronautica","Royal Navy Aviation"], correct:0}
+];
+
+let QUESTIONS=[], idx=0, score=0, timer=null, timeLeft=15;
+
+// DOM
+const menu=document.getElementById('menu');
+const game=document.getElementById('game');
+const end=document.getElementById('end');
+const qtext=document.getElementById('qtext');
+const optsEl=document.getElementById('opts');
+const nextBtn=document.getElementById('nextBtn');
+const idxEl=document.getElementById('idx');
+const totalEl=document.getElementById('total');
+const scoreDisplay=document.getElementById('scoreDisplay');
+const timeEl=document.getElementById('time');
+const resultText=document.getElementById('resultText');
+
+function startGame(){
+  QUESTIONS=[...QUESTION_BANK];
+  shuffle(QUESTIONS);
+  idx=0; score=0;
+  menu.classList.add('hidden');
+  end.classList.add('hidden');
+  game.classList.remove('hidden');
+  renderQuestion();
+}
+
+function renderQuestion(){
+  if(idx>=QUESTIONS.length){return showResult();}
+  const Q=QUESTIONS[idx];
+  const opts=Q.opts.map((t,i)=>({text:t,orig:i}));
+  shuffle(opts);
+  Q.shuffled=opts;
+  Q.correctIndex=opts.findIndex(o=>o.orig===Q.correct);
+
+  qtext.textContent=Q.q;
+  optsEl.innerHTML='';
+  opts.forEach((opt,i)=>{
+    const b=document.createElement('button');
+    b.className='opt';
+    b.textContent=opt.text;
+    b.onclick=()=>selectOption(i,b,Q);
+    optsEl.appendChild(b);
+  });
+
+  idxEl.textContent=idx+1;
+  totalEl.textContent=QUESTIONS.length;
+  nextBtn.disabled=true;
+  timeLeft=15;
+  updateTimer();
+  if(timer) clearInterval(timer);
+  timer=setInterval(countdown,1000);
+  scoreDisplay.textContent=`Puntaje: ${score.toFixed(1)}`;
+}
+
+function selectOption(i,btn,Q){
+  Array.from(optsEl.children).forEach(b=>b.disabled=true);
+  if(i===Q.correctIndex){
+    btn.style.background='#163b20';
+    score+=1+timeLeft*0.1;
+  }else{
+    btn.style.background='#3b1616';
+    const ok=optsEl.children[Q.correctIndex];
+    ok.style.background='#163b20';
+  }
+  nextBtn.disabled=false;
+  clearInterval(timer);
+  scoreDisplay.textContent=`Puntaje: ${score.toFixed(1)}`;
+}
+
+function countdown(){
+  timeLeft--;
+  updateTimer();
+  if(timeLeft<=0){
+    clearInterval(timer);
+    nextBtn.disabled=false;
+    Array.from(optsEl.children).forEach(b=>b.disabled=true);
+  }
+}
+
+function updateTimer(){timeEl.textContent=timeLeft;}
+
+nextBtn.addEventListener('click',()=>{
+  idx++;
+  renderQuestion();
+});
+
+function showResult(){
+  game.classList.add('hidden');
+  end.classList.remove('hidden');
+  resultText.innerHTML=`<p>Puntaje final: <strong>${score.toFixed(1)}</strong></p>
+  <p>Preguntas y opciones aleatorias para cada reinicio.</p>`;
+}
+
+function restart(){menu.classList.remove('hidden'); end.classList.add('hidden');}
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}}
+</script>
+</body>
+</html>
